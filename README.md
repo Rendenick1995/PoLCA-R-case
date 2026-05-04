@@ -15,6 +15,8 @@
 
 Данные были изначально представлены в формате .sav для их обработке в программе IBM SPSS Statistics v. 25.0. В этом виде они были перенесены в среду R для проведения латентного классового анализа. После его проведения и выявления оптимального количества классов (2 класса), данные классы были присвоены респондентам; итоговый массив был обратно транспонирован в .sav для проведения дальнейших расчетов по классам (линейный регрессионный анализ, сравнение средних по параметрам, корреляционный анализ и др.). Исходя из полученных результатов было решено номинировать полученные классы как "Респонденты, ориентированные на организацию" и "Респонденты, ориентированные на себя".
 
+Проведенный анализ решил ряд исследовательских задач, поставленных в ходе подготовки научной статьи и показал статистически значимые различия между выявленными классами по таким параметрам как уровень лояльности, степень вовлеченности в проект, новообретенные компетенции и др.
+
 Полный ход работы в среде R отражен ниже:
 
 ```install.packages("haven")
@@ -25,48 +27,48 @@ library(haven)
 library(poLCA)
 library(tidyverse)
 
-cat("\n=== Загрузка данных ===\n")
-cat("Выберите файл в формате .sav\n")
+cat("\n=== Uploading data ===\n")
+cat("Choose the file .sav\n")
 data_full <- read_sav(file.choose())
-cat("Данные загружены. Размер:", dim(data_full), "\n")
+cat("Data is uploaded. Size:", dim(data_full), "\n")
 
 indicator_vars <- c("Q10_1", "Q10_2", "Q10_3", "Q10_4", "Q10_5", "Q10_6", "Q10_7", "Q10_8")
 
-cat("\n=== Преобразование в факторы ===\n")
+cat("\n=== Transforming to factors ===\n")
 for (var in indicator_vars) {
   data_full[[var]] <- as.factor(data_full[[var]])
-  cat("Переменная", var, "преобразована в фактор. Уровни:", 
+  cat("Variable", var, "Transformed to factors. Levels:", 
       length(levels(data_full[[var]])), "\n")
 }
 
-cat("\n=== Обработка пропусков ===\n")
+cat("\n=== Missing values processing ===\n")
 n_before <- nrow(data_full)
 data_clean <- na.omit(data_full[, indicator_vars])
 n_after <- nrow(data_clean)
 
-cat("Исходное количество наблюдений:", n_before, "\n")
-cat("После удаления пропусков:", n_after, "\n")
-cat("Удалено наблюдений:", n_before - n_after, "\n")
+cat("Initial number of data points:", n_before, "\n")
+cat("After removing missing data points:", n_after, "\n")
+cat("Data points removed:", n_before - n_after, "\n")
 
 if (n_after < 50) {
-  stop("Слишком мало наблюдений после удаления пропусков (меньше 50). 
-       Анализ невозможен.")
+  stop("Too little data points after removing missing data points (less than 50). 
+       Analysis is imposible.")
 }
 
 lca_formula <- as.formula(paste("cbind(", 
                                 paste(indicator_vars, collapse = ", "), 
                                 ") ~ 1"))
 
-cat("\n=== Формула модели ===\n")
+cat("\n=== Model formula ===\n")
 cat(deparse(lca_formula), "\n")
 
-cat("\n=== Подбор оптимального числа классов ===\n")
+cat("\n=== Finding optimal number of classes ===\n")
 
 max_classes <- 6
 results <- data.frame()
 
 for (k in 1:max_classes) {
-  cat("Оценка модели с", k, "классами...")
+  cat("Model estimation to", k, "classes...")
   
     model <- tryCatch({
     poLCA(lca_formula, 
@@ -77,7 +79,7 @@ for (k in 1:max_classes) {
           graphs = FALSE,
           verbose = FALSE)
   }, error = function(e) {
-    cat(" ОШИБКА:", e$message, "\n")
+    cat(" ERROR:", e$message, "\n")
     return(NULL)
   })
   
@@ -107,15 +109,15 @@ for (k in 1:max_classes) {
   }
 }
 
-cat("\n=== ТАБЛИЦА СРАВНЕНИЯ МОДЕЛЕЙ ===\n")
+cat("\n=== Table of model comparison ===\n")
 print(results)
 
 optimal_classes <- 2
 
-cat("\n=== Выбор числа классов ===\n")
-cat("Выбрано классов:", optimal_classes, "\n")
+cat("\n=== Choice of classes number ===\n")
+cat("Classes are chosen:", optimal_classes, "\n")
 
-cat("\n=== Оценка финальной модели ===\n")
+cat("\n=== Final model estimation ===\n")
 final_model <- poLCA(lca_formula, 
                      data = data_clean, 
                      nclass = optimal_classes, 
@@ -124,18 +126,18 @@ final_model <- poLCA(lca_formula,
                      graphs = TRUE,
                      verbose = TRUE)
 
-cat("\n=== ФИНАЛЬНАЯ МОДЕЛЬ ===\n")
-cat("Логарифм правдоподобия:", final_model$llik, "\n")
+cat("\n=== Final model ===\n")
+cat("Log-likelihood function:", final_model$llik, "\n")
 cat("AIC:", final_model$aic, "\n")
 cat("BIC:", final_model$bic, "\n")
 
-cat("\nРазмеры классов:\n")
+cat("\nClasses sizes:\n")
 for (i in 1:optimal_classes) {
-  cat(sprintf("  Класс %d: %.1f%% (%d респондентов)\n", 
+  cat(sprintf("  Класс %d: %.1f%% (%d respondents)\n", 
               i, final_model$P[i] * 100, round(final_model$P[i] * final_model$Nobs)))
 }
 
-cat("\n=== ШАГ 10: Присвоение классов ===\n")
+cat("\n=== Classes assumption ===\n")
 
 classification_df <- data.frame(
   row_id = rownames(data_clean),
@@ -150,11 +152,11 @@ for (c in 1:optimal_classes) {
 
 classification_df$max_probability <- apply(posterior_probs, 1, max)
 
-cat("Создан датафрейм классификации с", nrow(classification_df), "строками\n")
-cat("Распределение классов в очищенных данных:\n")
+cat("Dataframe of classification is created", nrow(classification_df), "lines\n")
+cat("Classes distribution in clear data:\n")
 print(table(classification_df$assigned_class))
 
-cat("\n=== Объединение с исходными данными ===\n")
+cat("\n=== Merging with initial data ===\n")
 
 data_full$row_id <- as.character(1:nrow(data_full))
 classification_df$row_id <- as.character(classification_df$row_id)
@@ -163,19 +165,19 @@ data_final <- left_join(data_full, classification_df, by = "row_id")
 
 data_final$row_id <- NULL
 
-cat("Размер финальных данных:", dim(data_final), "\n")
-cat("Количество наблюдений с присвоенным классом:", 
+cat("Size of final data:", dim(data_final), "\n")
+cat("Number of data points with class assumption:", 
     sum(!is.na(data_final$assigned_class)), "\n")
-cat("Количество наблюдений с пропуском (исключены из LCA):", 
+cat("Number of missing data points (not included to LCA):", 
     sum(is.na(data_final$assigned_class)), "\n")
 
-cat("\n=== Сохранение результатов ===\n")
+cat("\n=== Saving results ===\n")
 
 write_sav(data_final, "complete_data_with_classes.sav")
-cat("Сохранен SPSS файл: complete_data_with_classes.sav\n")
+cat("SPSS file is saved: complete_data_with_classes.sav\n")
 
 write.csv(results, "model_comparison.csv", row.names = FALSE)
-cat("Сохранена таблица сравнения моделей: model_comparison.csv\n")
+cat("Table of models comparison is saved: model_comparison.csv\n")
 
 save(final_model, file = "lca_model.RData")
-cat("Сохранена модель: lca_model.RData\n")
+cat("Model is saved: lca_model.RData\n")
