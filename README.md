@@ -17,9 +17,9 @@
 
 Полный ход работы в среде R отражен ниже:
 
-install.packages("haven")
-install.packages("poLCA")
-install.packages("tidyverse")
+ install.packages("haven")
+ install.packages("poLCA")
+ install.packages("tidyverse")
 
 library(haven)
 library(poLCA)
