@@ -178,4 +178,4 @@ write.csv(results, "model_comparison.csv", row.names = FALSE)
 cat("Сохранена таблица сравнения моделей: model_comparison.csv\n")
 
 save(final_model, file = "lca_model.RData")
-cat("Сохранена модель: lca_model.RData\n")```
+cat("Сохранена модель: lca_model.RData\n")
